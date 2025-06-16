@@ -6,7 +6,7 @@ import Link from 'next/link';
 import AlgorithmVisualizer from '@/components/d3/AlgorithmVisualizer';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Play, Pause, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RefreshCw, Zap } from 'lucide-react'; // Thêm icon Zap cho tốc độ
 
 const VisualizerPage: React.FC = () => {
     const searchParams = useSearchParams();
@@ -16,6 +16,10 @@ const VisualizerPage: React.FC = () => {
     const [algorithm, setAlgorithm] = useState<string>(initialAlgorithm);
     const [isSorting, setIsSorting] = useState<boolean>(false);
     const [isPaused, setIsPaused] = useState<boolean>(false);
+
+    // --- 1. STATE VÀ REF MỚI CHO TỐC ĐỘ ---
+    const [speed, setSpeed] = useState<number>(1); // State để cập nhật UI
+    const speedRef = useRef<number>(1); // Ref để logic luôn đọc được giá trị mới nhất
 
     const isCancelledRef = useRef<boolean>(false);
     const resumeResolverRef = useRef<(() => void) | null>(null);
@@ -76,12 +80,23 @@ const VisualizerPage: React.FC = () => {
         resetIndices();
     };
 
+    // --- 2. HÀM XỬ LÝ KHI THAY ĐỔI TỐC ĐỘ ---
+    const handleSpeedChange = (value: string) => {
+        const newSpeed = parseFloat(value);
+        setSpeed(newSpeed);
+        speedRef.current = newSpeed;
+    };
+
     useEffect(() => {
         generateNewDataAndReset();
     }, [algorithm, generateNewDataAndReset]);
 
-    const pausableSleep = async (ms: number) => {
-        await new Promise(resolve => setTimeout(resolve, ms));
+    // --- 3. CẬP NHẬT PAUSABLE_SLEEP ĐỂ TÍNH TOÁN DELAY DỰA TRÊN TỐC ĐỘ ---
+    const pausableSleep = async (baseMs: number) => {
+        // Tốc độ càng cao, thời gian chờ (delay) càng ngắn
+        const actualDelay = baseMs / speedRef.current;
+
+        await new Promise(resolve => setTimeout(resolve, actualDelay));
 
         if (isPausedRef.current) {
             await new Promise<void>(resolve => {
@@ -270,6 +285,22 @@ const VisualizerPage: React.FC = () => {
                             <SelectItem value="merge-sort">Merge Sort</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    {/* --- 4. THÊM COMPONENT CHỌN TỐC ĐỘ --- */}
+                    <Select onValueChange={handleSpeedChange} defaultValue={speed.toString()} disabled={isSorting}>
+                        <SelectTrigger className="w-[150px]">
+                            <Zap className="mr-2 h-4 w-4 text-yellow-500" />
+                            <SelectValue placeholder="Chọn tốc độ" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="0.5">Rất chậm (0.5x)</SelectItem>
+                            <SelectItem value="0.75">Chậm (0.75x)</SelectItem>
+                            <SelectItem value="1">Bình thường (1x)</SelectItem>
+                            <SelectItem value="1.5">Nhanh (1.5x)</SelectItem>
+                            <SelectItem value="2">Rất nhanh (2x)</SelectItem>
+                        </SelectContent>
+                    </Select>
+
                     <Button onClick={generateNewDataAndReset} variant="outline" disabled={isSorting}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Dữ liệu mới
@@ -297,6 +328,7 @@ const VisualizerPage: React.FC = () => {
                     </Button>
                 </div>
 
+                {/* Phần chú thích màu sắc giữ nguyên */}
                 <div className="flex justify-center items-center flex-wrap gap-x-6 gap-y-2 mb-8 p-3 bg-white rounded-lg shadow-md text-sm text-slate-700">
                     <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: '#3b82f6' }}></div><span>Mặc định</span></div>
                     <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: '#ef4444' }}></div><span>Đang so sánh</span></div>
